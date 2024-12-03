@@ -2,10 +2,12 @@ import React, { useEffect } from "react";
 import { PixelGrid } from "../components/Grid/PixelGrid";
 import { PurchasePanel } from "../components/Purchase/PurchasePanel";
 import { useGridStore } from "../stores/useGridStore";
+import { useUrlParams } from "../hooks/useUrlParams";
 import { initializeDatabase } from "../utils/database";
 
 export const Home: React.FC = () => {
   const { loadPixels, isLoading, error } = useGridStore();
+  useUrlParams(); // Handle URL parameters for sharing
 
   useEffect(() => {
     const init = async () => {

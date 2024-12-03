@@ -1,13 +1,19 @@
-import React from 'react';
-import { ExternalLink, Clock, Wallet } from 'lucide-react';
-import { Pixel } from '../../types/grid';
+import React from "react";
+import { ExternalLink, Clock, Wallet, Share2 } from "lucide-react";
+import { Pixel } from "../../types/grid";
+import { ShareButton } from "../Social/ShareButton";
 
 interface PixelDetailsProps {
   pixel: Pixel;
   onClose: () => void;
 }
 
-export const PixelDetails: React.FC<PixelDetailsProps> = ({ pixel, onClose }) => {
+export const PixelDetails: React.FC<PixelDetailsProps> = ({
+  pixel,
+  onClose,
+}) => {
+  const shareText = `Check out this awesome pixel art on Solana Memegrid! Located at (${pixel.x}, ${pixel.y}) 🎨`;
+
   return (
     <div className="bg-white rounded-lg shadow-lg border border-indigo-100 overflow-hidden">
       {pixel.image && (
@@ -19,24 +25,20 @@ export const PixelDetails: React.FC<PixelDetailsProps> = ({ pixel, onClose }) =>
           />
         </div>
       )}
-      
+
       <div className="p-6">
         <div className="flex justify-between items-start mb-6">
           <div>
             <h3 className="text-lg font-semibold text-gray-900">Owned Pixel</h3>
             <p className="text-sm text-gray-500">
-              Position: ({pixel.startX}, {pixel.startY})
-              {(pixel.endX !== pixel.startX || pixel.endY !== pixel.startY) && 
-                ` to (${pixel.endX}, ${pixel.endY})`
-              }
+              Position: ({pixel.x}, {pixel.y})
             </p>
           </div>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-500 p-1"
           >
-            <span className="sr-only">Close</span>
-            ×
+            <span className="sr-only">Close</span>×
           </button>
         </div>
 
@@ -72,13 +74,17 @@ export const PixelDetails: React.FC<PixelDetailsProps> = ({ pixel, onClose }) =>
           <div className="flex items-start gap-3">
             <Clock className="w-5 h-5 text-indigo-500 mt-1" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-gray-900">Purchase History</p>
+              <p className="text-sm font-medium text-gray-900">
+                Purchase History
+              </p>
               <div className="mt-2 space-y-2">
                 {pixel.history.map((record, index) => (
                   <div
                     key={index}
                     className={`p-3 rounded-lg ${
-                      index === 0 ? 'bg-indigo-50 border border-indigo-100' : 'bg-gray-50'
+                      index === 0
+                        ? "bg-indigo-50 border border-indigo-100"
+                        : "bg-gray-50"
                     }`}
                   >
                     <div className="flex justify-between items-start mb-1">
@@ -96,6 +102,13 @@ export const PixelDetails: React.FC<PixelDetailsProps> = ({ pixel, onClose }) =>
                 ))}
               </div>
             </div>
+          </div>
+
+          <div className="flex items-center justify-center pt-4 border-t">
+            <ShareButton
+              pixelCoords={{ x: pixel.x, y: pixel.y }}
+              customText={shareText}
+            />
           </div>
         </div>
       </div>

@@ -1,39 +1,59 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { useGridStore } from '../../stores/useGridStore';
-import { ImageUpload } from './ImageUpload';
-import { ColorPicker } from './ColorPicker';
-import { usePixelPurchase } from '../../hooks/usePixelPurchase';
-import { ShoppingCart, AlertCircle, MousePointer2, Info, Image as ImageIcon, Palette, Link as LinkIcon } from 'lucide-react';
-import { PixelDetails } from '../Grid/PixelDetails';
+import React, { useState, useCallback, useMemo, useEffect } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import { useGridStore } from "../../stores/useGridStore";
+import { ImageUpload } from "./ImageUpload";
+import { ColorPicker } from "./ColorPicker";
+import { usePixelPurchase } from "../../hooks/usePixelPurchase";
+import {
+  ShoppingCart,
+  AlertCircle,
+  MousePointer2,
+  Info,
+  Image as ImageIcon,
+  Palette,
+  Link as LinkIcon,
+} from "lucide-react";
+import { PixelDetails } from "../Grid/PixelDetails";
 
 export const PurchasePanel: React.FC = () => {
   const wallet = useWallet();
   const { selection, getPixel, calculateTotalPrice } = useGridStore();
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [selectedColor, setSelectedColor] = useState('#FF0000');
-  const [link, setLink] = useState('');
-  const [activeTab, setActiveTab] = useState<'customize' | 'details'>('customize');
-  
+  const [selectedColor, setSelectedColor] = useState("#FF0000");
+  const [link, setLink] = useState("");
+  const [activeTab, setActiveTab] = useState<"customize" | "details">(
+    "customize"
+  );
+
   const { isLoading, error: purchaseError, purchase } = usePixelPurchase();
 
   useEffect(() => {
     setImageFile(null);
-    setLink('');
+    setLink("");
   }, [selection]);
 
-  const { totalPrice, pixelCount, newPixels, ownedPixels, owners, selectedPixels } = useMemo(() => {
-    if (!selection) return { 
-      totalPrice: 0, 
-      pixelCount: 0, 
-      newPixels: 0, 
-      ownedPixels: 0, 
-      owners: new Set<string>(),
-      selectedPixels: [] 
-    };
-    
-    const count = (selection.endX - selection.startX + 1) * (selection.endY - selection.startY + 1);
+  const {
+    totalPrice,
+    pixelCount,
+    newPixels,
+    ownedPixels,
+    owners,
+    selectedPixels,
+  } = useMemo(() => {
+    if (!selection)
+      return {
+        totalPrice: 0,
+        pixelCount: 0,
+        newPixels: 0,
+        ownedPixels: 0,
+        owners: new Set<string>(),
+        selectedPixels: [],
+      };
+
+    const count =
+      (selection.endX - selection.startX + 1) *
+      (selection.endY - selection.startY + 1);
     const priceInfo = calculateTotalPrice(selection);
     const pixels = [];
 
@@ -43,11 +63,11 @@ export const PurchasePanel: React.FC = () => {
         if (pixel) pixels.push(pixel);
       }
     }
-    
-    return { 
+
+    return {
       ...priceInfo,
       pixelCount: count,
-      selectedPixels: pixels
+      selectedPixels: pixels,
     };
   }, [selection, calculateTotalPrice, getPixel]);
 
@@ -73,7 +93,7 @@ export const PurchasePanel: React.FC = () => {
         totalPrice
       );
     } catch (err) {
-      console.error('Purchase failed:', err);
+      console.error("Purchase failed:", err);
     }
   }, [selection, imageFile, link, selectedColor, purchase, totalPrice]);
 
@@ -82,7 +102,9 @@ export const PurchasePanel: React.FC = () => {
       <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-gray-200">
         <div className="text-center">
           <MousePointer2 className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-lg font-medium text-gray-900">Select Pixels</h3>
+          <h3 className="mt-2 text-lg font-medium text-gray-900">
+            Select Pixels
+          </h3>
           <p className="mt-1 text-sm text-gray-500">
             Click and drag on the grid to select pixels to purchase
           </p>
@@ -102,7 +124,9 @@ export const PurchasePanel: React.FC = () => {
           </div>
           <div className="text-right">
             <p className="text-sm text-gray-600">Total Price</p>
-            <p className="text-lg font-bold text-secondary">{totalPrice.toFixed(3)} SOL</p>
+            <p className="text-lg font-bold text-secondary">
+              {totalPrice.toFixed(3)} SOL
+            </p>
           </div>
         </div>
         <div className="flex gap-2 text-sm text-gray-600">
@@ -112,7 +136,7 @@ export const PurchasePanel: React.FC = () => {
           )}
           {owners.size > 0 && (
             <span className="text-gray-500">
-              from {owners.size} owner{owners.size > 1 ? 's' : ''}
+              from {owners.size} owner{owners.size > 1 ? "s" : ""}
             </span>
           )}
         </div>
@@ -122,21 +146,21 @@ export const PurchasePanel: React.FC = () => {
       <div className="flex border-b border-gray-200">
         <button
           className={`flex-1 py-3 text-sm font-medium border-b-2 ${
-            activeTab === 'customize'
-              ? 'border-secondary text-secondary'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
+            activeTab === "customize"
+              ? "border-secondary text-secondary"
+              : "border-transparent text-gray-500 hover:text-gray-700"
           }`}
-          onClick={() => setActiveTab('customize')}
+          onClick={() => setActiveTab("customize")}
         >
           Customize
         </button>
         <button
           className={`flex-1 py-3 text-sm font-medium border-b-2 ${
-            activeTab === 'details'
-              ? 'border-secondary text-secondary'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
+            activeTab === "details"
+              ? "border-secondary text-secondary"
+              : "border-transparent text-gray-500 hover:text-gray-700"
           }`}
-          onClick={() => setActiveTab('details')}
+          onClick={() => setActiveTab("details")}
         >
           Pixel Details
         </button>
@@ -144,11 +168,13 @@ export const PurchasePanel: React.FC = () => {
 
       {/* Content Area */}
       <div className="flex-1 overflow-y-auto p-4">
-        {activeTab === 'customize' ? (
+        {activeTab === "customize" ? (
           !wallet.connected ? (
             <div className="text-center py-8">
               <WalletMultiButton className="!py-2 !px-4" />
-              <p className="mt-2 text-sm text-gray-500">Connect your wallet to continue</p>
+              <p className="mt-2 text-sm text-gray-500">
+                Connect your wallet to continue
+              </p>
             </div>
           ) : (
             <div className="space-y-6">
@@ -160,13 +186,18 @@ export const PurchasePanel: React.FC = () => {
                 <ImageUpload onImageSelected={setImageFile} />
               </div>
 
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
-                  <Palette className="h-4 w-4 text-secondary" />
-                  <span>Choose Color</span>
+              {!imageFile && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
+                    <Palette className="h-4 w-4 text-secondary" />
+                    <span>Choose Color</span>
+                  </div>
+                  <ColorPicker
+                    selectedColor={selectedColor}
+                    onChange={setSelectedColor}
+                  />
                 </div>
-                <ColorPicker selectedColor={selectedColor} onChange={setSelectedColor} />
-              </div>
+              )}
 
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
@@ -204,7 +235,7 @@ export const PurchasePanel: React.FC = () => {
       </div>
 
       {/* Footer with purchase button */}
-      {activeTab === 'customize' && (
+      {activeTab === "customize" && (
         <div className="p-4 border-t border-gray-200">
           {purchaseError && (
             <div className="mb-4 flex items-start space-x-2 text-red-600 bg-red-50 p-3 rounded-lg">
@@ -221,7 +252,9 @@ export const PurchasePanel: React.FC = () => {
             >
               <ShoppingCart className="h-5 w-5" />
               <span>
-                {isLoading ? 'Processing...' : `Purchase for ${totalPrice.toFixed(3)} SOL`}
+                {isLoading
+                  ? "Processing..."
+                  : `Purchase for ${totalPrice.toFixed(3)} SOL`}
               </span>
             </button>
           )}
