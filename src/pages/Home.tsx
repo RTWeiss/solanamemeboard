@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { PixelGrid } from "../components/Grid/PixelGrid";
 import { PurchasePanel } from "../components/Purchase/PurchasePanel";
+import { ActivityFeed } from "../components/Activity/ActivityFeed";
 import { useGridStore } from "../stores/useGridStore";
 import { useUrlParams } from "../hooks/useUrlParams";
 import { initializeDatabase } from "../utils/database";
@@ -48,8 +49,9 @@ export const Home: React.FC = () => {
             <PixelGrid />
           )}
         </div>
-        <div className="lg:col-span-4 xl:col-span-3 order-1 lg:order-2">
+        <div className="lg:col-span-4 xl:col-span-3 order-1 lg:order-2 space-y-4">
           <PurchasePanel />
+          <ActivityFeed />
         </div>
       </div>
     </div>

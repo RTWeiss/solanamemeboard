@@ -1,7 +1,7 @@
-import { create } from 'zustand';
-import { Pixel, GridSelection } from '../types/grid';
-import { PIXEL_PRICE } from '../config/solana';
-import { fetchAllPixels } from '../services/pixelService';
+import { create } from "zustand";
+import { Pixel, GridSelection } from "../types/grid";
+import { PIXEL_PRICE } from "../config/solana";
+import { fetchAllPixels } from "../services/pixelService";
 
 interface GridStore {
   purchasedPixels: Record<string, Pixel>;
@@ -9,12 +9,15 @@ interface GridStore {
   isLoading: boolean;
   error: string | null;
   setSelection: (selection: GridSelection | null) => void;
-  updatePixels: (pixels: { x: number; y: number; data: Partial<Pixel> }[]) => void;
+  updatePixels: (
+    pixels: { x: number; y: number; data: Partial<Pixel> }[]
+  ) => void;
+  updatePixelInStore: (pixel: Pixel) => void;
   getPixelPrice: (x: number, y: number) => number;
   getPixel: (x: number, y: number) => Pixel | null;
-  calculateTotalPrice: (selection: GridSelection) => { 
-    totalPrice: number; 
-    newPixels: number; 
+  calculateTotalPrice: (selection: GridSelection) => {
+    totalPrice: number;
+    newPixels: number;
     ownedPixels: number;
     owners: Set<string>;
   };
@@ -32,11 +35,11 @@ export const useGridStore = create<GridStore>((set, get) => ({
   updatePixels: (updates) =>
     set((state) => {
       const newPurchasedPixels = { ...state.purchasedPixels };
-      
+
       updates.forEach(({ x, y, data }) => {
         const key = `${x},${y}`;
         const existingPixel = state.purchasedPixels[key];
-        
+
         if (data.owner) {
           newPurchasedPixels[key] = {
             ...existingPixel,
@@ -48,6 +51,17 @@ export const useGridStore = create<GridStore>((set, get) => ({
       });
 
       return { purchasedPixels: newPurchasedPixels };
+    }),
+
+  updatePixelInStore: (pixel) =>
+    set((state) => {
+      const key = `${pixel.x},${pixel.y}`;
+      return {
+        purchasedPixels: {
+          ...state.purchasedPixels,
+          [key]: pixel,
+        },
+      };
     }),
 
   getPixelPrice: (x: number, y: number) => {
@@ -81,11 +95,11 @@ export const useGridStore = create<GridStore>((set, get) => ({
       }
     }
 
-    return { 
-      totalPrice, 
-      newPixels, 
+    return {
+      totalPrice,
+      newPixels,
       ownedPixels,
-      owners
+      owners,
     };
   },
 
@@ -95,8 +109,8 @@ export const useGridStore = create<GridStore>((set, get) => ({
       const pixels = await fetchAllPixels();
       set({ purchasedPixels: pixels, isLoading: false });
     } catch (error) {
-      set({ error: 'Failed to load pixels', isLoading: false });
-      console.error('Error loading pixels:', error);
+      set({ error: "Failed to load pixels", isLoading: false });
+      console.error("Error loading pixels:", error);
     }
   },
 }));
