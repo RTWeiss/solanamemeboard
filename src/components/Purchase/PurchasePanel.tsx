@@ -5,6 +5,7 @@ import { useGridStore } from "../../stores/useGridStore";
 import { ImageUpload } from "./ImageUpload";
 import { ColorPicker } from "./ColorPicker";
 import { usePixelPurchase } from "../../hooks/usePixelPurchase";
+import { formatUrl } from "../../utils/string";
 import {
   ShoppingCart,
   AlertCircle,
@@ -85,10 +86,13 @@ export const PurchasePanel: React.FC = () => {
         });
       }
 
+      // Format the URL before purchase
+      const formattedLink = link ? formatUrl(link) : null;
+
       await purchase(
         selection,
         imageData,
-        link,
+        formattedLink,
         imageData ? null : selectedColor,
         totalPrice
       );
@@ -209,8 +213,12 @@ export const PurchasePanel: React.FC = () => {
                   value={link}
                   onChange={(e) => setLink(e.target.value)}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-secondary focus:border-secondary"
-                  placeholder="https://example.com"
+                  placeholder="example.com"
                 />
+                <p className="text-xs text-gray-500">
+                  Enter your URL without https:// - it will be added
+                  automatically
+                </p>
               </div>
             </div>
           )
@@ -219,7 +227,7 @@ export const PurchasePanel: React.FC = () => {
             {selectedPixels.length > 0 ? (
               selectedPixels.map((pixel, index) => (
                 <PixelDetails
-                  key={`${pixel.x}-${pixel.y}`}
+                  key={`${pixel.x}-${pixel.y}-${index}`}
                   pixel={pixel}
                   onClose={() => {}}
                 />
