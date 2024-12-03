@@ -1,6 +1,5 @@
 import { WalletError } from "@solana/wallet-adapter-base";
-import { TransactionError } from "./types";
-import { ERROR_MESSAGES } from "./constants";
+import { TransactionError, ERROR_MESSAGES } from "./config";
 
 export class SolanaTransactionError extends Error implements TransactionError {
   code?: number;
@@ -17,21 +16,16 @@ export class SolanaTransactionError extends Error implements TransactionError {
 export const handleTransactionError = (error: unknown): Error => {
   console.error("Transaction error details:", error);
 
-  // Handle wallet adapter specific errors
   if (error instanceof WalletError) {
     switch (error.name) {
       case "WalletConnectionError":
         return new Error("Failed to connect to wallet. Please try again.");
       case "WalletSignTransactionError":
-        return new Error(
-          "Transaction was cancelled. Please try again if you want to proceed."
-        );
+        return new Error(ERROR_MESSAGES.USER_REJECTED);
       case "WalletNotConnectedError":
-        return new Error("Please connect your wallet to continue.");
+        return new Error(ERROR_MESSAGES.WALLET_NOT_CONNECTED);
       default:
-        return new Error(
-          error.message || "Wallet error occurred. Please try again."
-        );
+        return new Error(error.message || ERROR_MESSAGES.TRANSACTION_FAILED);
     }
   }
 
@@ -39,42 +33,23 @@ export const handleTransactionError = (error: unknown): Error => {
     const message = error.message.toLowerCase();
 
     if (message.includes("invalid public key")) {
-      return new SolanaTransactionError("Invalid wallet address configuration");
+      return new SolanaTransactionError(ERROR_MESSAGES.INVALID_WALLET);
     }
 
-    if (
-      message.includes("insufficient lamports") ||
-      message.includes("insufficient funds")
-    ) {
-      return new SolanaTransactionError("Insufficient SOL in your wallet");
+    if (message.includes("insufficient")) {
+      return new SolanaTransactionError(error.message);
     }
 
-    if (
-      message.includes("user rejected") ||
-      message.includes("user cancelled")
-    ) {
-      return new SolanaTransactionError("Transaction was cancelled by user");
+    if (message.includes("rejected") || message.includes("cancelled")) {
+      return new SolanaTransactionError(ERROR_MESSAGES.USER_REJECTED);
     }
 
-    if (
-      message.includes("blockhash not found") ||
-      message.includes("block height exceeded")
-    ) {
+    if (message.includes("timeout") || message.includes("timed out")) {
       return new SolanaTransactionError(ERROR_MESSAGES.TRANSACTION_TIMEOUT);
-    }
-
-    if (message.includes("transaction simulation failed")) {
-      return new SolanaTransactionError(ERROR_MESSAGES.SIMULATION_FAILED);
-    }
-
-    if (message.includes("domain verification failed")) {
-      return new SolanaTransactionError(
-        "Failed to verify domain. Please try again."
-      );
     }
 
     return error;
   }
 
-  return new SolanaTransactionError("Transaction failed. Please try again");
+  return new SolanaTransactionError(ERROR_MESSAGES.TRANSACTION_FAILED);
 };

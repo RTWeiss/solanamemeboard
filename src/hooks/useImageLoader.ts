@@ -1,9 +1,9 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef } from "react";
 
 export class ImageLoadError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'ImageLoadError';
+    this.name = "ImageLoadError";
   }
 }
 
@@ -12,7 +12,6 @@ export const useImageLoader = () => {
 
   const loadImage = useCallback((url: string): Promise<HTMLImageElement> => {
     return new Promise((resolve, reject) => {
-      // Check cache first
       const cachedImage = imageCache.current.get(url);
       if (cachedImage?.complete && cachedImage.naturalWidth !== 0) {
         resolve(cachedImage);
@@ -31,18 +30,13 @@ export const useImageLoader = () => {
         reject(new ImageLoadError(`Failed to load image: ${url}`));
       };
 
-      // For data URLs, we don't need crossOrigin
-      if (!url.startsWith('data:')) {
-        img.crossOrigin = 'anonymous';
+      if (!url.startsWith("data:")) {
+        img.crossOrigin = "anonymous";
       }
 
       img.src = url;
     });
   }, []);
 
-  const clearCache = useCallback(() => {
-    imageCache.current.clear();
-  }, []);
-
-  return { loadImage, clearCache };
+  return { loadImage };
 };

@@ -4,7 +4,14 @@ export interface PixelHistory {
   timestamp: number;
 }
 
-export interface Pixel {
+export interface PixelCoordinates {
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+}
+
+export interface Pixel extends PixelCoordinates {
   x: number;
   y: number;
   owner: string | null;
@@ -15,12 +22,7 @@ export interface Pixel {
   currentPrice: number;
 }
 
-export interface GridSelection {
-  startX: number;
-  startY: number;
-  endX: number;
-  endY: number;
-}
+export interface GridSelection extends PixelCoordinates {}
 
 export interface GridState {
   purchasedPixels: Record<string, Pixel>;

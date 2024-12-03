@@ -4,6 +4,7 @@
   "verification": {
     "domain": "memegrid.co",
     "timestamp": 1733191900371,
-    "signature": "ed25519:base64EncodedSignature"
+    "signature": "ed25519:GakdkZWzJg0Wdl45bZ23WI+XLcziNGDUZhAVOUw0dAEimLFbMGHxbVp73KhrescfV0/rlKyfvMtv+sqTuLBaDQ==",
+    "publicKey": "ed25519:fj8LABOvQ7mQRmNBplAQwxkRgMrEkutX8paKGCO12Ew="
   }
 }

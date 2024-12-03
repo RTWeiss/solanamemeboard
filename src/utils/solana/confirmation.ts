@@ -1,12 +1,12 @@
-import { Connection, TransactionSignature } from '@solana/web3.js';
-import { TRANSACTION_DEFAULTS } from './constants';
+import { Connection, TransactionSignature } from "@solana/web3.js";
+import { TRANSACTION_DEFAULTS, ConfirmationResult } from "./config";
 
 export async function confirmTransaction(
   connection: Connection,
   signature: TransactionSignature,
   blockhash: string,
   lastValidBlockHeight: number
-): Promise<boolean> {
+): Promise<ConfirmationResult> {
   try {
     const confirmation = await Promise.race([
       connection.confirmTransaction(
@@ -17,15 +17,26 @@ export async function confirmTransaction(
         },
         TRANSACTION_DEFAULTS.PREFLIGHT_COMMITMENT
       ),
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Confirmation timeout')), 
-        TRANSACTION_DEFAULTS.CONFIRMATION_TIMEOUT)
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error("Transaction confirmation timeout")),
+          TRANSACTION_DEFAULTS.CONFIRMATION_TIMEOUT
+        )
       ),
     ]);
 
-    return !confirmation.value.err;
+    return {
+      value: confirmation.value,
+      success: !confirmation.value.err,
+    };
   } catch (error) {
-    console.error('Transaction confirmation failed:', error);
-    return false;
+    return {
+      value: null,
+      success: false,
+      error:
+        error instanceof Error
+          ? error
+          : new Error("Unknown confirmation error"),
+    };
   }
 }
