@@ -1,0 +1,9 @@
+{
+  "label": "Solana Memegrid",
+  "icon": "/icon.png",
+  "verification": {
+    "domain": "memegrid.co",
+    "timestamp": 1733191900371,
+    "signature": "ed25519:base64EncodedSignature"
+  }
+}

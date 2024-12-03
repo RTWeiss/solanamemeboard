@@ -15,6 +15,8 @@ export class SolanaTransactionError extends Error implements TransactionError {
 }
 
 export const handleTransactionError = (error: unknown): Error => {
+  console.error("Transaction error details:", error);
+
   // Handle wallet adapter specific errors
   if (error instanceof WalletError) {
     switch (error.name) {
@@ -63,6 +65,12 @@ export const handleTransactionError = (error: unknown): Error => {
 
     if (message.includes("transaction simulation failed")) {
       return new SolanaTransactionError(ERROR_MESSAGES.SIMULATION_FAILED);
+    }
+
+    if (message.includes("domain verification failed")) {
+      return new SolanaTransactionError(
+        "Failed to verify domain. Please try again."
+      );
     }
 
     return error;
