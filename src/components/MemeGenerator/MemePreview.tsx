@@ -1,11 +1,13 @@
 import React, { useRef, useState } from "react";
-import { toPng } from "html-to-image";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
-import { Download, X, Loader2 } from "lucide-react";
+import { Download, X, Loader2, AlertCircle } from "lucide-react";
 import { useMemeStore } from "../../stores/useMemeStore";
 import { purchasePixels } from "../../utils/solana/transaction";
 import { useConnection } from "@solana/wallet-adapter-react";
+import { preloadImages } from "../../utils/image/loader";
+import { downloadImage } from "../../utils/image/download";
+import { ImageLoadError } from "../../utils/image/types";
 
 interface MemePreviewProps {
   onClose: () => void;
@@ -15,6 +17,7 @@ export const MemePreview: React.FC<MemePreviewProps> = ({ onClose }) => {
   const previewRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const { connection } = useConnection();
   const wallet = useWallet();
   const { image, texts, stickers, background } = useMemeStore();
@@ -61,43 +64,14 @@ export const MemePreview: React.FC<MemePreviewProps> = ({ onClose }) => {
     height: "120px",
   });
 
-  const loadAllImages = async () => {
-    const imagesToLoad = [];
+  const collectImages = () => {
+    const images: string[] = [];
 
-    // Add base image if exists
-    if (image) {
-      imagesToLoad.push(image);
-    }
+    if (image) images.push(image);
+    stickers.forEach((sticker) => images.push(sticker.url));
+    if (background.pattern) images.push(background.pattern);
 
-    // Add all sticker images
-    stickers.forEach((sticker) => {
-      imagesToLoad.push(sticker.url);
-    });
-
-    // Add background pattern if exists
-    if (background.pattern) {
-      imagesToLoad.push(background.pattern);
-    }
-
-    // Load all images
-    const total = imagesToLoad.length;
-    let loaded = 0;
-
-    const loadImage = (url: string) => {
-      return new Promise<void>((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.onload = () => {
-          loaded++;
-          setLoadingStatus(`Loading assets (${loaded}/${total})...`);
-          resolve();
-        };
-        img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
-        img.src = url;
-      });
-    };
-
-    await Promise.all(imagesToLoad.map(loadImage));
+    return images;
   };
 
   const downloadMeme = async (includeBranding: boolean) => {
@@ -105,12 +79,16 @@ export const MemePreview: React.FC<MemePreviewProps> = ({ onClose }) => {
 
     try {
       setIsDownloading(true);
+      setError(null);
       setLoadingStatus("Loading assets...");
 
-      // Load all images first
-      await loadAllImages();
-      setLoadingStatus("Generating meme...");
+      // Preload all images
+      const images = collectImages();
+      await preloadImages(images, (loaded, total) => {
+        setLoadingStatus(`Loading assets (${loaded}/${total})...`);
+      });
 
+      setLoadingStatus("Processing payment...");
       if (!includeBranding && wallet.connected) {
         const result = await purchasePixels(
           connection,
@@ -124,7 +102,8 @@ export const MemePreview: React.FC<MemePreviewProps> = ({ onClose }) => {
         }
       }
 
-      if (includeBranding) {
+      setLoadingStatus("Generating meme...");
+      if (includeBranding && previewRef.current) {
         const brandingDiv = document.createElement("div");
         brandingDiv.className =
           "absolute bottom-4 right-4 text-white text-sm font-bold";
@@ -132,26 +111,23 @@ export const MemePreview: React.FC<MemePreviewProps> = ({ onClose }) => {
         previewRef.current.appendChild(brandingDiv);
       }
 
-      const dataUrl = await toPng(previewRef.current, {
+      await downloadImage(previewRef.current, {
         quality: 0.95,
         pixelRatio: 2,
         cacheBust: true,
+        filename: "meme.png",
       });
 
       if (includeBranding && previewRef.current.lastChild) {
         previewRef.current.removeChild(previewRef.current.lastChild);
       }
-
-      // Create download link
-      const link = document.createElement("a");
-      link.download = "meme.png";
-      link.href = dataUrl;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
     } catch (error) {
       console.error("Error generating meme:", error);
-      alert("Failed to generate meme. Please try again.");
+      setError(
+        error instanceof ImageLoadError
+          ? "Failed to load images. Please try again."
+          : "Failed to generate meme. Please try again."
+      );
     } finally {
       setIsDownloading(false);
       setLoadingStatus("");
@@ -214,6 +190,13 @@ export const MemePreview: React.FC<MemePreviewProps> = ({ onClose }) => {
           </div>
 
           <div className="mt-4 space-y-4">
+            {error && (
+              <div className="flex items-center gap-2 p-4 bg-red-50 text-red-600 rounded-lg">
+                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                <p>{error}</p>
+              </div>
+            )}
+
             {isDownloading ? (
               <div className="flex items-center justify-center gap-2 p-4 text-gray-600">
                 <Loader2 className="w-5 h-5 animate-spin" />
