@@ -7,6 +7,7 @@ import {
   calculateStickerSize,
   constrainStickerScale,
 } from "../../utils/boundaries/sticker";
+import { Trash2 } from "lucide-react";
 
 export const MemeSticker: React.FC<StickerElement> = ({
   id,
@@ -18,7 +19,8 @@ export const MemeSticker: React.FC<StickerElement> = ({
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id,
   });
-  const { updateSticker, selectedElement, setSelectedElement } = useMemeStore();
+  const { updateSticker, selectedElement, setSelectedElement, removeSticker } =
+    useMemeStore();
   const isSelected = selectedElement === id;
 
   const handleScaleChange = (newScale: number) => {
@@ -31,6 +33,12 @@ export const MemeSticker: React.FC<StickerElement> = ({
     const elementSize = calculateStickerSize(element, container);
     const constrainedScale = constrainStickerScale(newScale, elementSize);
     updateSticker(id, { scale: constrainedScale });
+  };
+
+  const handleRemove = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    removeSticker(id);
+    setSelectedElement(null);
   };
 
   const style: React.CSSProperties = {
@@ -67,14 +75,23 @@ export const MemeSticker: React.FC<StickerElement> = ({
       }}
     >
       {isSelected && (
-        <ResizeControls
-          scale={scale}
-          rotation={rotation}
-          onScaleChange={handleScaleChange}
-          onRotationChange={(newRotation) =>
-            updateSticker(id, { rotation: newRotation })
-          }
-        />
+        <>
+          <ResizeControls
+            scale={scale}
+            rotation={rotation}
+            onScaleChange={handleScaleChange}
+            onRotationChange={(newRotation) =>
+              updateSticker(id, { rotation: newRotation })
+            }
+          />
+          <button
+            onClick={handleRemove}
+            className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors shadow-md"
+            title="Remove sticker"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </>
       )}
       <img
         src={url}
