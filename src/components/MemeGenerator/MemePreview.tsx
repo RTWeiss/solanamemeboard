@@ -1,11 +1,11 @@
-import React, { useRef, useState } from 'react';
-import { toPng } from 'html-to-image';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { Download, X } from 'lucide-react';
-import { useMemeStore } from '../../stores/useMemeStore';
-import { purchasePixels } from '../../utils/solana/transaction';
-import { useConnection } from '@solana/wallet-adapter-react';
+import React, { useRef, useState } from "react";
+import { toPng } from "html-to-image";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import { Download, X, Loader2 } from "lucide-react";
+import { useMemeStore } from "../../stores/useMemeStore";
+import { purchasePixels } from "../../utils/solana/transaction";
+import { useConnection } from "@solana/wallet-adapter-react";
 
 interface MemePreviewProps {
   onClose: () => void;
@@ -14,6 +14,7 @@ interface MemePreviewProps {
 export const MemePreview: React.FC<MemePreviewProps> = ({ onClose }) => {
   const previewRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState("");
   const { connection } = useConnection();
   const wallet = useWallet();
   const { image, texts, stickers, background } = useMemeStore();
@@ -29,40 +30,86 @@ export const MemePreview: React.FC<MemePreviewProps> = ({ onClose }) => {
     }
   };
 
-  const getTextStyle = (text: typeof texts[0]): React.CSSProperties => ({
-    position: 'absolute',
+  const getTextStyle = (text: (typeof texts)[0]): React.CSSProperties => ({
+    position: "absolute",
     left: `${text.position.x}%`,
     top: `${text.position.y}%`,
-    transform: 'translate(-50%, -50%)',
+    transform: "translate(-50%, -50%)",
     fontSize: `${text.fontSize}px`,
     color: text.color,
     fontFamily: text.fontFamily,
     textAlign: text.textAlign,
-    textShadow: '2px 2px 2px rgba(0,0,0,0.3)',
-    padding: '4px',
-    whiteSpace: 'pre-wrap',
-    wordBreak: 'break-word',
-    maxWidth: '80%',
-    width: text.textAlign === 'center' ? '80%' : 'auto',
-    fontWeight: text.style.bold ? 'bold' : 'normal',
-    fontStyle: text.style.italic ? 'italic' : 'normal',
-    textDecoration: text.style.underline ? 'underline' : 'none',
+    textShadow: "2px 2px 2px rgba(0,0,0,0.3)",
+    padding: "4px",
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    maxWidth: "80%",
+    width: text.textAlign === "center" ? "80%" : "auto",
+    fontWeight: text.style.bold ? "bold" : "normal",
+    fontStyle: text.style.italic ? "italic" : "normal",
+    textDecoration: text.style.underline ? "underline" : "none",
   });
 
-  const getStickerStyle = (sticker: typeof stickers[0]): React.CSSProperties => ({
-    position: 'absolute',
+  const getStickerStyle = (
+    sticker: (typeof stickers)[0]
+  ): React.CSSProperties => ({
+    position: "absolute",
     left: `${sticker.position.x}%`,
     top: `${sticker.position.y}%`,
     transform: `translate(-50%, -50%) scale(${sticker.scale}) rotate(${sticker.rotation}deg)`,
-    width: '120px',
-    height: '120px',
+    width: "120px",
+    height: "120px",
   });
+
+  const loadAllImages = async () => {
+    const imagesToLoad = [];
+
+    // Add base image if exists
+    if (image) {
+      imagesToLoad.push(image);
+    }
+
+    // Add all sticker images
+    stickers.forEach((sticker) => {
+      imagesToLoad.push(sticker.url);
+    });
+
+    // Add background pattern if exists
+    if (background.pattern) {
+      imagesToLoad.push(background.pattern);
+    }
+
+    // Load all images
+    const total = imagesToLoad.length;
+    let loaded = 0;
+
+    const loadImage = (url: string) => {
+      return new Promise<void>((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          loaded++;
+          setLoadingStatus(`Loading assets (${loaded}/${total})...`);
+          resolve();
+        };
+        img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
+        img.src = url;
+      });
+    };
+
+    await Promise.all(imagesToLoad.map(loadImage));
+  };
 
   const downloadMeme = async (includeBranding: boolean) => {
     if (!previewRef.current) return;
 
     try {
       setIsDownloading(true);
+      setLoadingStatus("Loading assets...");
+
+      // Load all images first
+      await loadAllImages();
+      setLoadingStatus("Generating meme...");
 
       if (!includeBranding && wallet.connected) {
         const result = await purchasePixels(
@@ -73,43 +120,53 @@ export const MemePreview: React.FC<MemePreviewProps> = ({ onClose }) => {
         );
 
         if (!result.success) {
-          throw new Error('Payment failed');
+          throw new Error("Payment failed");
         }
       }
 
       if (includeBranding) {
-        const brandingDiv = document.createElement('div');
-        brandingDiv.className = 'absolute bottom-4 right-4 text-white text-sm font-bold';
-        brandingDiv.textContent = 'MemeGrid.co';
+        const brandingDiv = document.createElement("div");
+        brandingDiv.className =
+          "absolute bottom-4 right-4 text-white text-sm font-bold";
+        brandingDiv.textContent = "MemeGrid.co";
         previewRef.current.appendChild(brandingDiv);
       }
 
       const dataUrl = await toPng(previewRef.current, {
         quality: 0.95,
         pixelRatio: 2,
+        cacheBust: true,
       });
 
       if (includeBranding && previewRef.current.lastChild) {
         previewRef.current.removeChild(previewRef.current.lastChild);
       }
 
-      const link = document.createElement('a');
-      link.download = 'meme.png';
+      // Create download link
+      const link = document.createElement("a");
+      link.download = "meme.png";
       link.href = dataUrl;
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
     } catch (error) {
-      console.error('Error generating meme:', error);
+      console.error("Error generating meme:", error);
+      alert("Failed to generate meme. Please try again.");
     } finally {
       setIsDownloading(false);
+      setLoadingStatus("");
     }
   };
 
   return (
-    <div 
+    <div
       className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50"
       onClick={handleModalClick}
     >
-      <div className="bg-white rounded-lg max-w-2xl w-full" onClick={e => e.stopPropagation()}>
+      <div
+        className="bg-white rounded-lg max-w-2xl w-full"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="p-4 border-b flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900">Preview Your Meme</h2>
           <button
@@ -126,7 +183,9 @@ export const MemePreview: React.FC<MemePreviewProps> = ({ onClose }) => {
             className="relative w-full aspect-square rounded-lg overflow-hidden"
             style={{
               backgroundColor: background.color,
-              backgroundImage: background.pattern ? `url(${background.pattern})` : 'none',
+              backgroundImage: background.pattern
+                ? `url(${background.pattern})`
+                : "none",
             }}
           >
             {image && (
@@ -134,56 +193,61 @@ export const MemePreview: React.FC<MemePreviewProps> = ({ onClose }) => {
                 src={image}
                 alt="Meme preview"
                 className="absolute inset-0 w-full h-full object-contain"
+                crossOrigin="anonymous"
               />
             )}
             {texts.map((text) => (
-              <div
-                key={text.id}
-                style={getTextStyle(text)}
-              >
+              <div key={text.id} style={getTextStyle(text)}>
                 {text.content}
               </div>
             ))}
             {stickers.map((sticker) => (
-              <div
-                key={sticker.id}
-                style={getStickerStyle(sticker)}
-              >
+              <div key={sticker.id} style={getStickerStyle(sticker)}>
                 <img
                   src={sticker.url}
                   alt="Sticker"
                   className="w-full h-full object-contain"
+                  crossOrigin="anonymous"
                 />
               </div>
             ))}
           </div>
 
           <div className="mt-4 space-y-4">
-            <button
-              onClick={() => downloadMeme(true)}
-              disabled={isDownloading}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-secondary text-white rounded-lg hover:bg-secondary-light disabled:opacity-50"
-            >
-              <Download className="w-5 h-5" />
-              Download Free (with watermark)
-            </button>
-
-            {wallet.connected ? (
-              <button
-                onClick={() => downloadMeme(false)}
-                disabled={isDownloading}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary-light disabled:opacity-50"
-              >
-                <Download className="w-5 h-5" />
-                Download Premium (0.001 SOL)
-              </button>
-            ) : (
-              <div className="text-center">
-                <p className="text-sm text-gray-600 mb-2">
-                  Connect your wallet to download without watermark
-                </p>
-                <WalletMultiButton />
+            {isDownloading ? (
+              <div className="flex items-center justify-center gap-2 p-4 text-gray-600">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>{loadingStatus}</span>
               </div>
+            ) : (
+              <>
+                <button
+                  onClick={() => downloadMeme(true)}
+                  disabled={isDownloading}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-secondary text-white rounded-lg hover:bg-secondary-light disabled:opacity-50"
+                >
+                  <Download className="w-5 h-5" />
+                  Download Free (with watermark)
+                </button>
+
+                {wallet.connected ? (
+                  <button
+                    onClick={() => downloadMeme(false)}
+                    disabled={isDownloading}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary-light disabled:opacity-50"
+                  >
+                    <Download className="w-5 h-5" />
+                    Download Premium (0.001 SOL)
+                  </button>
+                ) : (
+                  <div className="text-center">
+                    <p className="text-sm text-gray-600 mb-2">
+                      Connect your wallet to download without watermark
+                    </p>
+                    <WalletMultiButton />
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
