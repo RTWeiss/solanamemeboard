@@ -34,43 +34,36 @@ export const PurchasePanel: React.FC = () => {
     setLink("");
   }, [selection]);
 
-  const {
-    totalPrice,
-    pixelCount,
-    newPixels,
-    ownedPixels,
-    owners,
-    selectedPixels,
-  } = useMemo(() => {
-    if (!selection)
-      return {
-        totalPrice: 0,
-        pixelCount: 0,
-        newPixels: 0,
-        ownedPixels: 0,
-        owners: new Set<string>(),
-        selectedPixels: [],
-      };
+  const { totalPrice, pixelCount, ownedPixels, owners, selectedPixels } =
+    useMemo(() => {
+      if (!selection)
+        return {
+          totalPrice: 0,
+          pixelCount: 0,
+          ownedPixels: 0,
+          owners: new Set<string>(),
+          selectedPixels: [],
+        };
 
-    const count =
-      (selection.endX - selection.startX + 1) *
-      (selection.endY - selection.startY + 1);
-    const priceInfo = calculateTotalPrice(selection);
-    const pixels = [];
+      const count =
+        (selection.endX - selection.startX + 1) *
+        (selection.endY - selection.startY + 1);
+      const priceInfo = calculateTotalPrice(selection);
+      const pixels = [];
 
-    for (let y = selection.startY; y <= selection.endY; y++) {
-      for (let x = selection.startX; x <= selection.endX; x++) {
-        const pixel = getPixel(x, y);
-        if (pixel) pixels.push(pixel);
+      for (let y = selection.startY; y <= selection.endY; y++) {
+        for (let x = selection.startX; x <= selection.endX; x++) {
+          const pixel = getPixel(x, y);
+          if (pixel) pixels.push(pixel);
+        }
       }
-    }
 
-    return {
-      ...priceInfo,
-      pixelCount: count,
-      selectedPixels: pixels,
-    };
-  }, [selection, calculateTotalPrice, getPixel]);
+      return {
+        ...priceInfo,
+        pixelCount: count,
+        selectedPixels: pixels,
+      };
+    }, [selection, calculateTotalPrice, getPixel]);
 
   const handlePurchase = useCallback(async () => {
     if (!selection) return;
@@ -87,11 +80,11 @@ export const PurchasePanel: React.FC = () => {
       }
 
       // Format the URL before purchase
-      const formattedLink = link ? formatUrl(link) : null;
+      const formattedLink = link ? formatUrl(link) : "";
 
       await purchase(
         selection,
-        imageData,
+        imageData || "",
         formattedLink,
         imageData ? null : selectedColor,
         totalPrice

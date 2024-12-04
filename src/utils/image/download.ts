@@ -18,9 +18,8 @@ export async function downloadImage(
       pixelRatio,
       cacheBust,
       style: {
-        // Ensure proper rendering on mobile
         transform: "none",
-        "transform-origin": "0 0",
+        ["transform-origin" as any]: "0 0", // Type assertion for non-standard CSS property
       },
     });
 
