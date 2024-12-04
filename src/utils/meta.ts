@@ -1,5 +1,5 @@
 export function updateMetaTags(page: "home" | "meme-generator") {
-  const memeTitle = "Solana Memegrid | Create and Share Your Memes";
+  const memeTitle = "Meme Generator | Create and Share Your Memes - Memegrid";
   const memeDescription =
     "Create, customize, and share your memes with our easy-to-use meme generator. Add text, stickers, and effects to make your meme stand out on the Solana blockchain.";
   const defaultTitle =
