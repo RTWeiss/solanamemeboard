@@ -1,60 +1,32 @@
-import { supabase } from '../config/supabase';
-import { Pixel, GridSelection } from '../types/grid';
-import { PIXEL_PRICE } from '../config/solana';
+import { supabase, retryOperation } from "../utils/supabase/client";
+import { Pixel, GridSelection } from "../types/grid";
+import { formatPixelData } from "../utils/pixel/formatter";
+import { preparePixelRecords } from "../utils/pixel/records";
+import { SupabaseClient } from "@supabase/supabase-js";
+import { Database } from "../types/supabase";
 
 export async function fetchAllPixels(): Promise<Record<string, Pixel>> {
   try {
-    // First fetch all pixels
-    const { data: pixels, error: pixelsError } = await supabase
-      .from('pixels')
-      .select('*');
+    const [pixelsResult, historyResult] = await Promise.all([
+      retryOperation(async () => {
+        const { data, error } = await supabase.from("pixels").select("*");
+        if (error) throw error;
+        return data;
+      }),
+      retryOperation(async () => {
+        const { data, error } = await supabase
+          .from("pixel_history")
+          .select("*")
+          .order("created_at", { ascending: true });
+        if (error) throw error;
+        return data;
+      }),
+    ]);
 
-    if (pixelsError) throw pixelsError;
-
-    // Then fetch all history records
-    const { data: history, error: historyError } = await supabase
-      .from('pixel_history')
-      .select('*')
-      .order('created_at', { ascending: true });
-
-    if (historyError) throw historyError;
-
-    const pixelMap: Record<string, Pixel> = {};
-
-    pixels?.forEach((pixel: any) => {
-      const key = `${pixel.x},${pixel.y}`;
-      const pixelHistory = history?.filter(h => h.pixel_id === pixel.id) || [];
-      
-      // Calculate current price based on purchase history
-      const purchaseCount = pixelHistory.length;
-      const currentPrice = purchaseCount > 0 
-        ? pixelHistory[purchaseCount - 1].price * 2 // Double the last purchase price
-        : PIXEL_PRICE;
-
-      pixelMap[key] = {
-        x: pixel.x,
-        y: pixel.y,
-        owner: pixel.owner,
-        image: pixel.image_url,
-        link: pixel.link_url,
-        color: pixel.color,
-        startX: pixel.start_x,
-        startY: pixel.start_y,
-        endX: pixel.end_x,
-        endY: pixel.end_y,
-        currentPrice: currentPrice,
-        history: pixelHistory.map(h => ({
-          owner: h.owner,
-          price: h.price,
-          timestamp: new Date(h.created_at).getTime(),
-        })),
-      };
-    });
-
-    return pixelMap;
+    return formatPixelData(pixelsResult, historyResult);
   } catch (error) {
-    console.error('Error fetching pixels:', error);
-    throw error;
+    console.error("Error fetching pixels:", error);
+    throw new Error("Failed to load pixel data. Please try again.");
   }
 }
 
@@ -63,106 +35,105 @@ export async function purchasePixels(
   owner: string,
   imageUrl: string | null,
   linkUrl: string | null,
-  color: string | null,
-  totalPrice: number
+  color: string | null
 ): Promise<void> {
   const client = supabase;
-  
+
   try {
-    // Start a transaction
-    const { data: existingPixels, error: fetchError } = await client
-      .from('pixels')
-      .select('id, x, y, price')
-      .or(`and(x.gte.${selection.startX},x.lte.${selection.endX},y.gte.${selection.startY},y.lte.${selection.endY})`);
+    const { data: existingPixels, error: fetchError } = await retryOperation(
+      async () =>
+        client
+          .from("pixels")
+          .select("id, x, y, price")
+          .or(
+            `and(x.gte.${selection.startX},x.lte.${selection.endX},y.gte.${selection.startY},y.lte.${selection.endY})`
+          )
+    );
 
     if (fetchError) throw fetchError;
 
-    // Create a map of existing pixels
     const existingPixelMap = new Map(
-      existingPixels?.map(p => [`${p.x},${p.y}`, { id: p.id, price: p.price }]) || []
+      existingPixels?.map((p) => [
+        `${p.x},${p.y}`,
+        { id: p.id, price: p.price },
+      ]) || []
     );
 
-    // Prepare update and insert records
-    const updateRecords = [];
-    const insertRecords = [];
-
-    for (let y = selection.startY; y <= selection.endY; y++) {
-      for (let x = selection.startX; x <= selection.endX; x++) {
-        const key = `${x},${y}`;
-        const existing = existingPixelMap.get(key);
-        
-        // Calculate price for this pixel
-        const price = existing 
-          ? existing.price * 2 // Double the previous price for existing pixels
-          : PIXEL_PRICE; // Base price for new pixels
-
-        const pixelData = {
-          x,
-          y,
-          owner,
-          image_url: imageUrl,
-          link_url: linkUrl,
-          color,
-          start_x: selection.startX,
-          start_y: selection.startY,
-          end_x: selection.endX,
-          end_y: selection.endY,
-          price: price
-        };
-
-        if (existing) {
-          updateRecords.push({
-            id: existing.id,
-            ...pixelData
-          });
-        } else {
-          insertRecords.push(pixelData);
-        }
-      }
-    }
-
-    // Perform updates first
-    if (updateRecords.length > 0) {
-      const { error: updateError } = await client
-        .from('pixels')
-        .upsert(updateRecords);
-
-      if (updateError) throw updateError;
-    }
-
-    // Then perform inserts
-    if (insertRecords.length > 0) {
-      const { error: insertError } = await client
-        .from('pixels')
-        .insert(insertRecords);
-
-      if (insertError) throw insertError;
-    }
-
-    // Get all affected pixels for history records
-    const { data: allAffectedPixels, error: affectedError } = await client
-      .from('pixels')
-      .select('id, price')
-      .or(`and(x.gte.${selection.startX},x.lte.${selection.endX},y.gte.${selection.startY},y.lte.${selection.endY})`);
-
-    if (affectedError) throw affectedError;
-
-    // Create history records
-    const historyRecords = allAffectedPixels.map(pixel => ({
-      pixel_id: pixel.id,
+    const { updateRecords, insertRecords } = preparePixelRecords(
+      selection,
       owner,
-      price: pixel.price // Use the actual price paid for each pixel
-    }));
+      imageUrl,
+      linkUrl,
+      color,
+      existingPixelMap
+    );
 
-    if (historyRecords.length > 0) {
-      const { error: historyError } = await client
-        .from('pixel_history')
-        .insert(historyRecords);
+    await Promise.all([
+      updateExistingPixels(client, updateRecords),
+      insertNewPixels(client, insertRecords),
+    ]);
 
-      if (historyError) throw historyError;
-    }
+    await createHistoryRecords(client, selection, owner);
   } catch (error) {
-    console.error('Error in purchasePixels:', error);
-    throw error;
+    console.error("Error in purchasePixels:", error);
+    throw new Error("Failed to purchase pixels. Please try again.");
+  }
+}
+
+async function updateExistingPixels(
+  client: SupabaseClient<Database>,
+  updateRecords: any[]
+) {
+  if (updateRecords.length > 0) {
+    const { error } = await retryOperation(async () =>
+      client.from("pixels").upsert(updateRecords)
+    );
+
+    if (error) throw error;
+  }
+}
+
+async function insertNewPixels(
+  client: SupabaseClient<Database>,
+  insertRecords: any[]
+) {
+  if (insertRecords.length > 0) {
+    const { error } = await retryOperation(async () =>
+      client.from("pixels").insert(insertRecords)
+    );
+
+    if (error) throw error;
+  }
+}
+
+async function createHistoryRecords(
+  client: SupabaseClient<Database>,
+  selection: GridSelection,
+  owner: string
+) {
+  const { data: affectedPixels, error: affectedError } = await retryOperation(
+    async () =>
+      client
+        .from("pixels")
+        .select("id, price")
+        .or(
+          `and(x.gte.${selection.startX},x.lte.${selection.endX},y.gte.${selection.startY},y.lte.${selection.endY})`
+        )
+  );
+
+  if (affectedError) throw affectedError;
+
+  const historyRecords = affectedPixels.map((pixel) => ({
+    pixel_id: pixel.id,
+    owner,
+    price: pixel.price,
+  }));
+
+  if (historyRecords.length > 0) {
+    const { error: historyError } = await retryOperation(async () =>
+      client.from("pixel_history").insert(historyRecords)
+    );
+
+    if (historyError) throw historyError;
   }
 }
