@@ -1,12 +1,26 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { MemeCanvas } from "../components/MemeGenerator/MemeCanvas";
 import { MemeControls } from "../components/MemeGenerator/MemeControls";
 import { MemePreview } from "../components/MemeGenerator/MemePreview";
 import { useMemeStore } from "../stores/useMemeStore";
 import { Download } from "lucide-react";
+import { updateMetaTags } from "../utils/meta";
 
 export const MemeGenerator: React.FC = () => {
   const [showPreview, setShowPreview] = useState(false);
+
+  // Update meta tags when component mounts and cleanup when unmounts
+  useEffect(() => {
+    // Small delay to ensure meta tags update after route change
+    const timeoutId = setTimeout(() => {
+      updateMetaTags("meme-generator");
+    }, 0);
+
+    return () => {
+      clearTimeout(timeoutId);
+      updateMetaTags("home");
+    };
+  }, []);
 
   return (
     <div className="container mx-auto px-4 py-8">
