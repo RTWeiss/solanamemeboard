@@ -1,77 +1,43 @@
 import { create } from "zustand";
-
-interface Position {
-  x: number;
-  y: number;
-}
-
-interface TextStyle {
-  bold: boolean;
-  italic: boolean;
-  underline: boolean;
-}
-
-interface TextElement {
-  id: string;
-  content: string;
-  position: Position;
-  fontSize: number;
-  color: string;
-  fontFamily: string;
-  textAlign: "left" | "center" | "right";
-  style: TextStyle;
-}
-
-interface StickerElement {
-  id: string;
-  url: string;
-  position: Position;
-  scale: number;
-  rotation: number;
-}
-
-interface Background {
-  color: string;
-  pattern: string | null;
-}
+import {
+  Position,
+  TextElement,
+  StickerElement,
+  Background,
+  GuideSettings,
+} from "../types/meme";
 
 interface MemeState {
   image: string | null;
   texts: TextElement[];
   stickers: StickerElement[];
   background: Background;
+  showGuides: GuideSettings;
   selectedElement: string | null;
+  setImage: (url: string | null) => void;
   addText: (text: Partial<TextElement>) => void;
   updateText: (id: string, updates: Partial<TextElement>) => void;
   removeText: (id: string) => void;
   addSticker: (sticker: Partial<StickerElement>) => void;
   updateSticker: (id: string, updates: Partial<StickerElement>) => void;
   removeSticker: (id: string) => void;
-  setImage: (url: string | null) => void;
   setBackground: (updates: Partial<Background>) => void;
   updateElementPosition: (
     id: string,
     type: "text" | "sticker",
-    delta: Position
+    position: Position
   ) => void;
   setSelectedElement: (id: string | null) => void;
   resetMeme: () => void;
 }
 
-const initialState: Omit<
-  MemeState,
-  | "addText"
-  | "updateText"
-  | "removeText"
-  | "addSticker"
-  | "updateSticker"
-  | "removeSticker"
-  | "setImage"
-  | "setBackground"
-  | "updateElementPosition"
-  | "setSelectedElement"
-  | "resetMeme"
-> = {
+const defaultTextStyle = {
+  bold: false,
+  italic: false,
+  underline: false,
+};
+
+const initialState = {
   image: null,
   texts: [],
   stickers: [],
@@ -79,22 +45,18 @@ const initialState: Omit<
     color: "#ffffff",
     pattern: null,
   },
+  showGuides: {
+    ruler: false,
+    centerLines: true,
+    grid: false,
+  },
   selectedElement: null,
 };
 
-const defaultTextStyle: TextStyle = {
-  bold: false,
-  italic: false,
-  underline: false,
-};
-
-const clampPosition = (position: Position): Position => ({
-  x: Math.max(0, Math.min(100, position.x)),
-  y: Math.max(0, Math.min(100, position.y)),
-});
-
 export const useMemeStore = create<MemeState>((set) => ({
   ...initialState,
+
+  setImage: (url) => set({ image: url }),
 
   addText: (text) =>
     set((state) => ({
@@ -108,7 +70,7 @@ export const useMemeStore = create<MemeState>((set) => ({
           color: "#000000",
           fontFamily: "Arial",
           textAlign: "center",
-          style: { ...defaultTextStyle, ...(text.style || {}) },
+          style: { ...defaultTextStyle },
           ...text,
         },
       ],
@@ -117,15 +79,7 @@ export const useMemeStore = create<MemeState>((set) => ({
   updateText: (id, updates) =>
     set((state) => ({
       texts: state.texts.map((text) =>
-        text.id === id
-          ? {
-              ...text,
-              ...updates,
-              style: updates.style
-                ? { ...text.style, ...updates.style }
-                : text.style,
-            }
-          : text
+        text.id === id ? { ...text, ...updates } : text
       ),
     })),
 
@@ -161,34 +115,29 @@ export const useMemeStore = create<MemeState>((set) => ({
       stickers: state.stickers.filter((sticker) => sticker.id !== id),
     })),
 
-  setImage: (url) => set({ image: url }),
-
   setBackground: (updates) =>
     set((state) => ({
       background: { ...state.background, ...updates },
     })),
 
-  updateElementPosition: (id, type, delta) =>
+  updateElementPosition: (id, type, position) =>
     set((state) => {
-      const updatePosition = (elements: any[]) =>
-        elements.map((element) =>
-          element.id === id
-            ? {
-                ...element,
-                position: clampPosition({
-                  x: element.position.x + delta.x,
-                  y: element.position.y + delta.y,
-                }),
-              }
-            : element
-        );
-
-      return type === "text"
-        ? { texts: updatePosition(state.texts) }
-        : { stickers: updatePosition(state.stickers) };
+      if (type === "text") {
+        return {
+          texts: state.texts.map((text) =>
+            text.id === id ? { ...text, position } : text
+          ),
+        };
+      } else {
+        return {
+          stickers: state.stickers.map((sticker) =>
+            sticker.id === id ? { ...sticker, position } : sticker
+          ),
+        };
+      }
     }),
 
   setSelectedElement: (id) => set({ selectedElement: id }),
 
-  resetMeme: () => set(() => ({ ...initialState })),
+  resetMeme: () => set(initialState),
 }));

@@ -1,13 +1,11 @@
-import React, { useRef, useState } from "react";
+import React, { useRef } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { Download, X, Loader2, AlertCircle } from "lucide-react";
 import { useMemeStore } from "../../stores/useMemeStore";
-import { purchasePixels } from "../../utils/solana/transaction";
-import { useConnection } from "@solana/wallet-adapter-react";
-import { preloadImages } from "../../utils/image/loader";
 import { downloadImage } from "../../utils/image/download";
-import { ImageLoadError } from "../../utils/image/types";
+import { getCanvasConfig } from "../../utils/boundaries/core";
+import { CANVAS_CONFIG } from "../../utils/boundaries/core";
 
 interface MemePreviewProps {
   onClose: () => void;
@@ -15,10 +13,9 @@ interface MemePreviewProps {
 
 export const MemePreview: React.FC<MemePreviewProps> = ({ onClose }) => {
   const previewRef = useRef<HTMLDivElement>(null);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [loadingStatus, setLoadingStatus] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const { connection } = useConnection();
+  const [isDownloading, setIsDownloading] = React.useState(false);
+  const [loadingStatus, setLoadingStatus] = React.useState("");
+  const [error, setError] = React.useState<string | null>(null);
   const wallet = useWallet();
   const { image, texts, stickers, background } = useMemeStore();
 
@@ -33,25 +30,35 @@ export const MemePreview: React.FC<MemePreviewProps> = ({ onClose }) => {
     }
   };
 
-  const getTextStyle = (text: (typeof texts)[0]): React.CSSProperties => ({
-    position: "absolute",
-    left: `${text.position.x}%`,
-    top: `${text.position.y}%`,
-    transform: "translate(-50%, -50%)",
-    fontSize: `${text.fontSize}px`,
-    color: text.color,
-    fontFamily: text.fontFamily,
-    textAlign: text.textAlign,
-    textShadow: "2px 2px 2px rgba(0,0,0,0.3)",
-    padding: "4px",
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
-    maxWidth: "80%",
-    width: text.textAlign === "center" ? "80%" : "auto",
-    fontWeight: text.style.bold ? "bold" : "normal",
-    fontStyle: text.style.italic ? "italic" : "normal",
-    textDecoration: text.style.underline ? "underline" : "none",
-  });
+  const getTextStyle = (text: (typeof texts)[0]): React.CSSProperties => {
+    const alignmentTransform =
+      text.textAlign === "left"
+        ? "translate(0%, -50%)"
+        : text.textAlign === "right"
+        ? "translate(-100%, -50%)"
+        : "translate(-50%, -50%)";
+
+    return {
+      position: "absolute",
+      left: `${text.position.x}%`,
+      top: `${text.position.y}%`,
+      transform: alignmentTransform,
+      fontSize: `${text.fontSize}px`,
+      color: text.color,
+      fontFamily: text.fontFamily,
+      textAlign: text.textAlign,
+      textShadow: "2px 2px 2px rgba(0,0,0,0.3)",
+      whiteSpace: "pre-wrap",
+      wordBreak: "break-word",
+      width: `${100 - 2 * CANVAS_CONFIG.padding}%`,
+      fontWeight: text.style.bold ? "bold" : "normal",
+      fontStyle: text.style.italic ? "italic" : "normal",
+      textDecoration: text.style.underline ? "underline" : "none",
+      margin: 0,
+      padding: "4px",
+      lineHeight: "1.2",
+    };
+  };
 
   const getStickerStyle = (
     sticker: (typeof stickers)[0]
@@ -64,45 +71,13 @@ export const MemePreview: React.FC<MemePreviewProps> = ({ onClose }) => {
     height: "120px",
   });
 
-  const collectImages = () => {
-    const images: string[] = [];
-
-    if (image) images.push(image);
-    stickers.forEach((sticker) => images.push(sticker.url));
-    if (background.pattern) images.push(background.pattern);
-
-    return images;
-  };
-
-  const downloadMeme = async (includeBranding: boolean) => {
+  const handleDownload = async (includeBranding: boolean) => {
     if (!previewRef.current) return;
 
     try {
       setIsDownloading(true);
       setError(null);
-      setLoadingStatus("Loading assets...");
 
-      // Preload all images
-      const images = collectImages();
-      await preloadImages(images, (loaded, total) => {
-        setLoadingStatus(`Loading assets (${loaded}/${total})...`);
-      });
-
-      setLoadingStatus("Processing payment...");
-      if (!includeBranding && wallet.connected) {
-        const result = await purchasePixels(
-          connection,
-          wallet,
-          { startX: 0, startY: 0, endX: 0, endY: 0 },
-          0.001
-        );
-
-        if (!result.success) {
-          throw new Error("Payment failed");
-        }
-      }
-
-      setLoadingStatus("Generating meme...");
       if (includeBranding && previewRef.current) {
         const brandingDiv = document.createElement("div");
         brandingDiv.className =
@@ -123,16 +98,14 @@ export const MemePreview: React.FC<MemePreviewProps> = ({ onClose }) => {
       }
     } catch (error) {
       console.error("Error generating meme:", error);
-      setError(
-        error instanceof ImageLoadError
-          ? "Failed to load images. Please try again."
-          : "Failed to generate meme. Please try again."
-      );
+      setError("Failed to generate meme. Please try again.");
     } finally {
       setIsDownloading(false);
       setLoadingStatus("");
     }
   };
+
+  const canvasConfig = getCanvasConfig();
 
   return (
     <div
@@ -156,8 +129,9 @@ export const MemePreview: React.FC<MemePreviewProps> = ({ onClose }) => {
         <div className="p-4">
           <div
             ref={previewRef}
-            className="relative w-full aspect-square rounded-lg overflow-hidden"
+            className="relative rounded-lg overflow-hidden mx-auto"
             style={{
+              ...canvasConfig.style,
               backgroundColor: background.color,
               backgroundImage: background.pattern
                 ? `url(${background.pattern})`
@@ -200,12 +174,12 @@ export const MemePreview: React.FC<MemePreviewProps> = ({ onClose }) => {
             {isDownloading ? (
               <div className="flex items-center justify-center gap-2 p-4 text-gray-600">
                 <Loader2 className="w-5 h-5 animate-spin" />
-                <span>{loadingStatus}</span>
+                <span>{loadingStatus || "Generating meme..."}</span>
               </div>
             ) : (
               <>
                 <button
-                  onClick={() => downloadMeme(true)}
+                  onClick={() => handleDownload(true)}
                   disabled={isDownloading}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-secondary text-white rounded-lg hover:bg-secondary-light disabled:opacity-50"
                 >
@@ -215,7 +189,7 @@ export const MemePreview: React.FC<MemePreviewProps> = ({ onClose }) => {
 
                 {wallet.connected ? (
                   <button
-                    onClick={() => downloadMeme(false)}
+                    onClick={() => handleDownload(false)}
                     disabled={isDownloading}
                     className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary-light disabled:opacity-50"
                   >

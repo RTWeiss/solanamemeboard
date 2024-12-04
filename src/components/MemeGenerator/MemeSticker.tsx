@@ -1,17 +1,14 @@
-import React, { useState } from 'react';
-import { useDraggable } from '@dnd-kit/core';
-import { X, Minus, Plus, RotateCw, RotateCcw } from 'lucide-react';
-import { useMemeStore } from '../../stores/useMemeStore';
+import React from "react";
+import { useDraggable } from "@dnd-kit/core";
+import { StickerElement } from "../../types/meme";
+import { ResizeControls } from "./Controls/ResizeControls";
+import { useMemeStore } from "../../stores/useMemeStore";
+import {
+  calculateStickerSize,
+  constrainStickerScale,
+} from "../../utils/boundaries/sticker";
 
-interface MemeStickerProps {
-  id: string;
-  url: string;
-  position: { x: number; y: number };
-  scale: number;
-  rotation: number;
-}
-
-export const MemeSticker: React.FC<MemeStickerProps> = ({
+export const MemeSticker: React.FC<StickerElement> = ({
   id,
   url,
   position,
@@ -21,34 +18,37 @@ export const MemeSticker: React.FC<MemeStickerProps> = ({
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id,
   });
-  const { removeSticker, updateSticker } = useMemeStore();
-  const [showControls, setShowControls] = useState(false);
+  const { updateSticker, selectedElement, setSelectedElement } = useMemeStore();
+  const isSelected = selectedElement === id;
 
-  const handleScale = (delta: number) => {
-    const newScale = Math.max(0.5, Math.min(3, scale + delta));
-    updateSticker(id, { scale: newScale });
-  };
+  const handleScaleChange = (newScale: number) => {
+    const element = document.querySelector(`[data-id="${id}"]`) as HTMLElement;
+    if (!element) return;
 
-  const handleRotation = (delta: number) => {
-    const newRotation = (rotation + delta) % 360;
-    updateSticker(id, { rotation: newRotation });
+    const container = element.parentElement;
+    if (!container) return;
+
+    const elementSize = calculateStickerSize(element, container);
+    const constrainedScale = constrainStickerScale(newScale, elementSize);
+    updateSticker(id, { scale: constrainedScale });
   };
 
   const style: React.CSSProperties = {
-    position: 'absolute',
+    position: "absolute",
     left: `${position.x}%`,
     top: `${position.y}%`,
-    transform: transform 
+    transform: transform
       ? `translate(-50%, -50%) translate(${transform.x}px, ${transform.y}px) scale(${scale}) rotate(${rotation}deg)`
       : `translate(-50%, -50%) scale(${scale}) rotate(${rotation}deg)`,
-    width: '120px',
-    height: '120px',
-    cursor: 'move',
-    touchAction: 'none',
-    zIndex: showControls ? 20 : 10,
-    WebkitUserSelect: 'none',
-    userSelect: 'none',
-    transformOrigin: 'center center',
+    width: "120px",
+    height: "120px",
+    cursor: "move",
+    touchAction: "none",
+    zIndex: isSelected ? 20 : 10,
+    WebkitUserSelect: "none",
+    userSelect: "none",
+    transformOrigin: "center center",
+    willChange: "transform",
   };
 
   return (
@@ -57,49 +57,25 @@ export const MemeSticker: React.FC<MemeStickerProps> = ({
       style={style}
       {...attributes}
       {...listeners}
-      className="sticker-wrapper group"
-      onMouseEnter={() => setShowControls(true)}
-      onMouseLeave={() => setShowControls(false)}
+      className={`sticker-wrapper ${
+        isSelected ? "ring-2 ring-secondary ring-offset-2" : ""
+      }`}
+      data-id={id}
+      onClick={(e) => {
+        e.stopPropagation();
+        setSelectedElement(id);
+      }}
     >
-      {/* Controls Overlay */}
-      <div className={`absolute -top-8 left-1/2 transform -translate-x-1/2 flex items-center gap-1 transition-opacity ${showControls ? 'opacity-100' : 'opacity-0'}`}>
-        <button
-          onClick={() => handleScale(-0.1)}
-          className="p-1 bg-white rounded-full shadow-md hover:bg-gray-100 text-gray-700"
-          title="Decrease size"
-        >
-          <Minus className="w-3 h-3" />
-        </button>
-        <button
-          onClick={() => handleScale(0.1)}
-          className="p-1 bg-white rounded-full shadow-md hover:bg-gray-100 text-gray-700"
-          title="Increase size"
-        >
-          <Plus className="w-3 h-3" />
-        </button>
-        <button
-          onClick={() => handleRotation(-45)}
-          className="p-1 bg-white rounded-full shadow-md hover:bg-gray-100 text-gray-700"
-          title="Rotate left"
-        >
-          <RotateCcw className="w-3 h-3" />
-        </button>
-        <button
-          onClick={() => handleRotation(45)}
-          className="p-1 bg-white rounded-full shadow-md hover:bg-gray-100 text-gray-700"
-          title="Rotate right"
-        >
-          <RotateCw className="w-3 h-3" />
-        </button>
-        <button
-          onClick={() => removeSticker(id)}
-          className="p-1 bg-red-500 rounded-full shadow-md text-white hover:bg-red-600"
-          title="Remove sticker"
-        >
-          <X className="w-3 h-3" />
-        </button>
-      </div>
-
+      {isSelected && (
+        <ResizeControls
+          scale={scale}
+          rotation={rotation}
+          onScaleChange={handleScaleChange}
+          onRotationChange={(newRotation) =>
+            updateSticker(id, { rotation: newRotation })
+          }
+        />
+      )}
       <img
         src={url}
         alt="Sticker"
@@ -107,9 +83,8 @@ export const MemeSticker: React.FC<MemeStickerProps> = ({
         draggable={false}
         onError={(e) => {
           const img = e.target as HTMLImageElement;
-          img.style.opacity = '0.2';
-          img.parentElement?.classList.add('bg-gray-100');
-          console.error(`Failed to load sticker image: ${url}`);
+          img.style.opacity = "0.2";
+          console.error(`Failed to load sticker: ${url}`);
         }}
       />
     </div>
